@@ -1,15 +1,17 @@
 (defpackage :formlets 
-  (:use :cl :cl-who :hunchentoot :cl-ppcre)
-  (:export :show-error :show-general-error :show-form :show-form-field
-	   :validate-field :validate-form :def-formlet))
+  (:use :cl :cl-who :hunchentoot)
+  (:import-from :cl-ppcre :regex-replace-all)
+  (:export :def-formlet))
 (in-package :formlets)
+
+;;Predicates
 
 ;;Utility
 (defmacro html-to-stout (&body body)
   `(with-html-output (*standard-output* nil :indent t) ,@body))
 
 (defun name->label (field-name)
-  (string-capitalize (cl-ppcre:regex-replace-all "-" (string field-name) " ")))
+  (string-capitalize (regex-replace-all "-" (string field-name) " ")))
 
 (defmacro error-html (key tag class)
   `(html-to-stout
@@ -27,17 +29,6 @@
 	(list->plist (cdr a-list) (append acc `(,(sym->keyword e) ,e))))))
 
 ;;View related functions
-(defmacro show-form ((form-name values errors &key (submit "Submit")) &body fields)
-  (let ((n (string-downcase (string form-name))))
-    `(html-to-stout
-       (show-general-error ,errors)
-       (:form :name ,n :id ,n :action ,(string-downcase (format nil "/validate-~a" n)) :method "post"
-	      (:ul :class "form-fields"
-		   ,@(mapcar (lambda (field) 
-			       `(show-form-field ',(car field) ',(cadr field) ,values ,errors))
-			     fields)
-		   (:li (:span :class "label") (:input :type "submit" :class "submit" :value ,submit))))))))
-
 (defun show-form-field (name type form-values form-errors)
   (let* ((s-name (string name)) (l-name (string-downcase s-name)))
     (html-to-stout
@@ -49,11 +40,24 @@
 				 :class "text-box" :type (string type)))))
 	   (show-error form-errors (sym->keyword name))))))
 
+(defmacro show-form ((form-name values errors &key (submit "Submit")) &body fields)
+  (let ((n (string-downcase (string form-name))))
+    `(html-to-stout
+       (show-general-error ,errors)
+       (:form :name ,n :id ,n :action ,(string-downcase (format nil "/validate-~a" n)) :method "post"
+	      (:ul :class "form-fields"
+		   ,@(mapcar (lambda (field) 
+			       `(show-form-field ',(car field) ',(cadr field) ,values ,errors))
+			     fields)
+		   (:li (:span :class "label") (:input :type "submit" :class "submit" :value ,submit)))))))
+
 ;;Validation related functions
 (defmacro validate-field ((field-name fail-message errors) test-fn)
-  `(if (,test-fn ,field-name) 
-       ,errors
-       (append ,errors '(,(sym->keyword field-name) ,fail-message))))
+  (if test-fn
+      `(if (,test-fn ,field-name) 
+	   ,errors
+	   (append ,errors '(,(sym->keyword field-name) ,fail-message)))
+      `,errors))
 
 (defmacro validate-form ((origin-fn &key fields general-val general-message) &body on-success)
   (let ((field-names (mapcar (lambda (f) (car f)) fields)))
@@ -67,8 +71,7 @@
 	      `(unless (apply ,general-val (list ,@field-names)) (setq results (append results (list :general-error ,general-message)))))
        (if (not results) 
 	   (progn ,@on-success)
-	   (,origin-fn :form-values (list ,@(list->plist field-names))
-		       :form-errors results)))))
+	   (,origin-fn :form-values (list ,@(list->plist field-names)) :form-errors results)))))
 
 ;;Formlet definition
 (defmacro def-formlet (formlet-name (source-fn fields &key general submit) &body on-success)
@@ -78,5 +81,4 @@
     `(progn (defun ,(intern (format nil "SHOW-~a-FORM" formlet-name)) (values errors)
 	      (show-form (,formlet-name values errors :submit ,submit) ,@name+type))
 	    (define-easy-handler (,(intern (format nil "VALIDATE-~a" formlet-name)) :uri ,(format nil "/validate-~(~a~)" formlet-name)) ,f-names
-	      (validate-form (,source-fn :fields ,fields ,@general-form)
-		,@on-success)))))
+	      (validate-form (,source-fn :fields ,fields ,@general-form) ,@on-success)))))
