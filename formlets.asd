@@ -30,4 +30,6 @@
   :description "Validating formlets for Hunchentoot"
   :components ((:file "package")
 	       (:file "utility" :depends-on ("package"))
-	       (:file "formlets" :depends-on ("package" "utility"))))
+	       (:file "formlets" :depends-on ("package" "utility")))
+  :depends-on (:cl-who
+               :hunchentoot))
