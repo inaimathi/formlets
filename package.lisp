@@ -1,5 +1,4 @@
-(defpackage :cl-formlets 
-  (:nicknames "formlets")
+(defpackage :formlets 
   (:use :cl :cl-who :hunchentoot)
   (:import-from :cl-ppcre :regex-replace-all)
   (:export :def-formlet)
