@@ -34,13 +34,14 @@
 (defmacro validate-form ((origin-fn &key fields general-val general-message) &body on-success)
   (let ((field-names (mapcar (lambda (f) (car f)) fields)))
     `(let ((results '()))
-       ,(when (not general-val)
-	      `(progn ,@(mapcar 
-			 (lambda (field) 
-			   `(setq results (validate-field (,(car field) ,(cadddr field) results) ,(caddr field))))
-			 fields)))
-       ,(when general-val
-	      `(unless (apply ,general-val (list ,@field-names)) (setq results (append results (list :general-error ,general-message)))))
+       ,(if (not general-val)
+	    `(progn ,@(mapcar 
+		       (lambda (field) 
+			 (let ((test-field (caddr field)))
+			   (when test-field 
+			     `(setq results (validate-field (,(car field) ,(cadddr field) results) ,test-field)))))
+		       fields))
+	    `(unless (apply ,general-val (list ,@field-names)) (setq results (append results (list :general-error ,general-message)))))
        (if (not results) 
 	   (progn ,@on-success)
 	   (,origin-fn :form-values (list ,@(list->plist field-names)) :form-errors results)))))
