@@ -8,10 +8,12 @@ Goals
 
 ### Boilerplate elimination
 At the high level, form interaction in HTML requires 
+
 1. Showing the user a form
 2. Get the response back
 3. Run a validation function per form field (or run a single validation function on all of the fields)
 4. If the validation passed, send them on, otherwise, show them the form again (but annotated to highight errors they need to correct)
+
 and I don't want to have to type it all the time.
 
 ### Simplicity
