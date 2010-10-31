@@ -92,7 +92,7 @@ A formlet declaration breaks down as
 	     [on success])
 
 + Formlet name is used to generate the CSS id and name of the form, as well as determine the final name of this formlets' `show-[name]-formlet` function.
-+ If the formlet fails validation, it will redirect the user to `[source function]`
++ If the formlet fails validation, it will redirect the user to `[source function]` (the provided function must be expecting the `form-values` and `form-errors` arguments
 + The list of fields should be one or more form fields as defined above
 + Submit button caption is just the text that will appear on this formlets' submit button. By default, it is "Submit"
 + The general validation function will attempt to validate the form as a whole, instead of field-by-field. If it fails, it will display `[error message]` as a field-independant error at the top of the formlet.`:general` defaults to `NIL`, and if it is provided, the individual field validation functions will be ignored.
