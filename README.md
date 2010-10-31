@@ -20,6 +20,9 @@ A declaration and `show-formlet` call is all that should be required to display,
 ### Style
 Automatically wraps the generated form in a UL and provides CSS classes and ids as hooks for the designers, making the look and feel easily customizable.
 
+### Completeness
+The system will eventually support the full complement of HTML form elements, including `select`, `checkbox` and `radio`, as well as higher-level inputs like `date` or `slider`. Currently, it only supports `password`, `text`, `textarea` and `recaptcha`.
+
 Non-Goals
 ---------
 
@@ -27,7 +30,7 @@ Non-Goals
 The system assumes Hunchentoot + cl-who. This allows the internal code to take advantage of HTML generation, as opposed to tag `format`ting.
 
 ### Run-time efficiency
-The module is aimed at simplifying HTML form use for the developer. This is a place that's by definition bound to user and network speeds. Furthermore, a single form is very rarely more than 20 inputs long in practice. Pieces should be made efficient where possible, but emphasis will not be placed on it.
+The module is aimed at simplifying HTML form use for the developer. This is a place that's by definition bound to user and network speeds. Furthermore, a single form is very rarely more than 20 inputs long in practice. Pieces will be made efficient where possible, but emphasis will not be placed on it.
 
 ### Markup customization
 While there are no assumptions about the CSS, formlet HTML markup is fixed by the implementation. A user can modify the `show-form-field` function to change how inputs are output, but this will not be made customizable by external variables.
@@ -74,6 +77,23 @@ You'd display this the same way as above, and the same principles apply. The onl
 A single field looks like this
 	(field-name :field-type validation-function "Error message")
 
-The field name is used to generate a label, ID and name for the form field. 
-The type signifies what kind of input will be displayed (currently, the system supports only `:text`, `:password`, `:textarea` or `:recaptcha`. A special note, in order to use the `:recaptcha` input type, you need to `setf` the `*private-key*` and `*public-key*` as appropriate for your recaptcha account.
-A validation function and error message can be provided optionally. If they aren't, the field won't be validated. If they are, then the function will be applied to the users' response. If the application fails, the error message will be pushed onto `form-errors`.
++ The field name is used to generate a label, CSS id and name for the form field. 
++ The type signifies what kind of input will be displayed (currently, the system supports only `:text`, `:password`, `:textarea` or `:recaptcha`. A special note, in order to use the `:recaptcha` input type, you need to `setf` the `*private-key*` and `*public-key*` as appropriate for your recaptcha account.
++ A validation function and error message can be provided optionally. If they aren't, the field won't be validated. If they are, then the function will be applied to the users' response. If the application fails, the error message will be pushed onto `form-errors`.
+
+A formlet declaration breaks down as
+
+	(def-formlet [formlet name]
+	    ([source function]
+	     ([list of fields])
+	     :submit [submit button caption]
+	     :general ([general validation function] 
+                       [error message])
+	     [on success])
+
++ Formlet name is used to generate the CSS id and name of the form, as well as determine the final name of this formlets' `show-[name]-formlet` function.
++ If the formlet fails validation, it will redirect the user to `[source function]`
++ The list of fields should be one or more form fields as defined above
++ Submit button caption is just the text that will appear on this formlets' submit button. By default, it is "Submit"
++ The general validation function will attempt to validate the form as a whole, instead of field-by-field. If it fails, it will display `[error message]` as a field-independant error at the top of the formlet.`:general` defaults to `NIL`, and if it is provided, the individual field validation functions will be ignored.
++ Finally, `[on success]` is a body parameter that determines what to do if the form validates properly
