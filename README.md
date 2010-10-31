@@ -32,10 +32,10 @@ Non-Goals
 The system assumes Hunchentoot + cl-who. This allows the internal code to take advantage of HTML generation, as opposed to tag `format`ting.
 
 ### Run-time efficiency
-The module is aimed at simplifying HTML form use for the developer. This is a place that's by definition bound to user and network speeds. Furthermore, a single form is very rarely more than 20 inputs long in practice. Pieces will be made efficient where possible, but emphasis will not be placed on it.
+The module is aimed at simplifying HTML form use for the developer. This is a place that's by definition bound by the slower of user speed or network speed. Furthermore, a single form is very rarely more than 20 inputs long in practice. Pieces will be made efficient where possible, but emphasis will not be placed on it.
 
 ### Markup customization
-While there are no assumptions about the CSS, formlet HTML markup is fixed by the implementation. A user can modify the `show-form-field` function to change how inputs are output, but this will not be made customizable by external variables.
+While there are no assumptions about the CSS, formlet HTML markup is fixed by the implementation. A user can modify the `show-form` and `show-form-field` functions to change output, but this will not be made customizable by external variables.
 
 Usage
 -----
@@ -80,7 +80,7 @@ A single field looks like this
 	(field-name :field-type validation-function "Error message")
 
 + The field name is used to generate a label, CSS id and name for the form field. 
-+ The type signifies what kind of input will be displayed (currently, the system supports only `:text`, `:password`, `:textarea` or `:recaptcha`. A special note, in order to use the `:recaptcha` input type, you need to `setf` the `*private-key*` and `*public-key*` as appropriate for your recaptcha account.
++ The type signifies what kind of input will be displayed (currently, the system supports only `:text`, `:password`, `:textarea` or `:recaptcha`. A special note, in order to use the `:recaptcha` input type, you need to `setf` the `formlets:*private-key*` and `formlets:*public-key*` as appropriate for your recaptcha account.
 + A validation function and error message can be provided optionally. If they aren't, the field won't be validated. If they are, then the function will be applied to the users' response. If the application fails, the error message will be pushed onto `form-errors`.
 
 A formlet declaration breaks down as
