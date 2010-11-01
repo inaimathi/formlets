@@ -7,7 +7,7 @@
       (:li (:span :class "label" (str (name->label name)))
 	   (cond ((equalp type :textarea) (htm (:textarea :name l-name)))
 		 ((equalp type :password) (htm (:input :name l-name :class "text-box" :type (string type))))
-		 ((equalp type :recaptcha) (htm (captcha)))
+		 ((equalp type :recaptcha) (htm (recaptcha)))
 		 (t (htm (:input :name l-name 
 				 :value (getf form-values (sym->keyword name))
 				 :class "text-box" :type (string type)))))
@@ -43,7 +43,7 @@
 			   (cond (test-field 
 				  `(setq results (validate-field (,(car field) ,(cadddr field) results) ,test-field)))
 				 ((equalp :recaptcha field-type)
-				  `(setq results (validate-field (,(car field) "You seem to have mistyped the recaptcha" results) validate-captcha))))))
+				  `(setq results (validate-field (,(car field) "You seem to have mistyped the recaptcha" results) validate-recaptcha))))))
 		       fields))
 	    `(unless (apply ,general-val (list ,@field-names)) (setq results (append results (list :general-error ,general-message)))))
        (if (not results) 
@@ -51,8 +51,8 @@
 	   (,origin-fn :form-values (list ,@(list->plist field-names)) :form-errors results)))))
 
 ;;Predicates
-(defun validate-captcha (f)
-  (captcha-passed? (post-parameter "recaptcha_challenge_field") (post-parameter "recaptcha_response_field") (real-remote-addr)))
+(defun validate-recaptcha (f)
+  (recaptcha-passed? (post-parameter "recaptcha_challenge_field") (post-parameter "recaptcha_response_field") (real-remote-addr)))
 
 ;;Formlet definition
 (defmacro def-formlet (formlet-name (source-fn fields &key general submit) &body on-success)
