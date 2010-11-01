@@ -40,17 +40,19 @@ While there are no assumptions about the CSS, formlet HTML markup is fixed by th
 Usage
 -----
 
-An example form declaration using general validation:
+An example form declaration using a general validation message:
 
 	(def-formlet login 
-	    (login-page ((user-name :text) (password :password)) :submit "Login"
-			:general (#'check-password "You did not enter the correct user name or password"))
+	    (login-page ((user-name :text (lambda (f) (check-password user-name password))) 
+	    		 (password :password)) 
+			:submit "Login"
+			:general "You did not enter the correct user name or password")
 	  (start-session)
 	  (setf (session-value :user-name) user-name)
 	  (setf (session-value :user-id) (check-password user-name password))
 	  (redirect "/profile"))
 
-In this case, the `check-password` function will be evaluated. If it returns `t`, a session is started and the user is redirected to `/profile`. If it returns `nil`, the user will be sent to `login-page`. The fields in this formlet are `user-name` (a standard text input), and `password` (a password input). The submit button will read "Login" (by default, it reads "Submit").
+If the validation function returns `t`, a session is started and the user is redirected to `/profile`. If it returns `nil`, the user will be sent to `login-page`, and a general error will be displayed just above the form. The fields in this formlet are `user-name` (a standard text input), and `password` (a password input). The submit button will read "Login" (by default, it reads "Submit").
 
 You would display the above formlet as follows:
 
@@ -74,7 +76,7 @@ An example form using individual input validation:
 	    (setf (session-value :user-id) id)
 	    (redirect "/profile")))
 
-You'd display this the same way as above, and the same principles apply. The only difference is that, instead of a single function needing to pass, there is now a series. In this case, it's a series of 4 (recaptchas are always validated the same way, so that was coded in the formlet module itself). If all of them pass, the user is redirected to `/profile`, otherwise a list of errors and user inputs is returned to `register-page`.
+You'd display this the same way as above, and the same principles apply. The only difference is that, instead of a single error being displayed on a validation failure, one is displayed next to each input. In this case, it's a series of 4 (recaptchas are always validated the same way, so that was coded in the formlet module itself). If all of them pass, the user is redirected to `/profile`, otherwise a list of errors and user inputs is returned to `register-page`.
 
 A single field looks like this
 	(field-name :field-type validation-function "Error message")
@@ -89,13 +91,12 @@ A formlet declaration breaks down as
 	    ([source function]
 	     ([list of fields])
 	     :submit [submit button caption]
-	     :general ([general validation function] 
-                       [error message])
+	     :general [general error message]
 	     [on success])
 
 + Formlet name is used to generate the CSS id and name of the form, as well as determine the final name of this formlets' `show-[name]-formlet` function.
 + If the formlet fails validation, it will redirect the user to `[source function]` (the provided function must be expecting the `form-values` and `form-errors` arguments)
 + The list of fields should be one or more form fields as defined above
 + Submit button caption is just the text that will appear on this formlets' submit button. By default, it is "Submit"
-+ The general validation function will attempt to validate the form as a whole, instead of field-by-field. If it fails, it will display `[error message]` as a field-independant error at the top of the formlet.`:general` defaults to `NIL`, and if it is provided, the individual field validation functions will be ignored.
++ If the [general error message] is present, it will be displayed above the form in the event of an error (and none of the individual warnings will be shown). This is useful for places like login forms, where you don't want to tell potential attackers which fields they got wrong.
 + Finally, `[on success]` is a body parameter that determines what to do if the form validates properly

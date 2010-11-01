@@ -32,23 +32,26 @@
 	   (append ,errors '(,(sym->keyword field-name) ,fail-message)))
       `,errors))
 
-(defmacro validate-form ((origin-fn &key fields general-val general-message) &body on-success)
+(defmacro validate-form ((origin-fn &key fields general) &body on-success)
   (let ((field-names (mapcar (lambda (f) (car f)) fields)))
     `(let ((results '()))
-       ,(if (not general-val)
-	    `(progn ,@(mapcar 
-		       (lambda (field) 
-			 (let ((test-field (caddr field))
-			       (field-type (cadr field)))
-			   (cond (test-field 
-				  `(setq results (validate-field (,(car field) ,(cadddr field) results) ,test-field)))
-				 ((equalp :recaptcha field-type)
-				  `(setq results (validate-field (,(car field) "You seem to have mistyped the recaptcha" results) validate-recaptcha))))))
-		       fields))
-	    `(unless (apply ,general-val (list ,@field-names)) (setq results (append results (list :general-error ,general-message)))))
+       (progn ,@(mapcar 
+		 (lambda (field) 
+		   (let ((test-field (caddr field))
+			 (field-type (cadr field)))
+		     (cond (test-field 
+			    `(setq results (validate-field (,(car field) ,(or general (cadddr field)) results) ,test-field)))
+			   ((equalp :recaptcha field-type)
+			    `(setq results 
+				   (validate-field (,(car field) "You seem to have mistyped the recaptcha" results) 
+						   validate-recaptcha))))))
+		 fields))
        (if (not results) 
 	   (progn ,@on-success)
-	   (,origin-fn :form-values (list ,@(list->plist field-names)) :form-errors results)))))
+	   (,origin-fn :form-values (list ,@(list->plist field-names)) 
+		       :form-errors ,(if general 
+					`(list :general-error ,general)
+					'results))))))
 
 ;;Predicates
 (defun validate-recaptcha (f)
@@ -57,9 +60,8 @@
 ;;Formlet definition
 (defmacro def-formlet (formlet-name (source-fn fields &key general submit) &body on-success)
   (let ((name+type (mapcar (lambda (f) (list (car f) (cadr f))) fields))
-	(f-names (mapcar #'car fields))
-	(general-form (if general `(:general-val ,(car general) :general-message ,(cadr general)) nil)))
+	(f-names (mapcar #'car fields)))
     `(progn (defun ,(intern (format nil "SHOW-~a-FORM" formlet-name)) (values errors)
 	      (show-form (,formlet-name values errors :submit ,submit) ,@name+type))
 	    (define-easy-handler (,(intern (format nil "VALIDATE-~a" formlet-name)) :uri ,(format nil "/validate-~(~a~)" formlet-name)) ,f-names
-	      (validate-form (,source-fn :fields ,fields ,@general-form) ,@on-success)))))
+	      (validate-form (,source-fn :fields ,fields :general ,general) ,@on-success)))))
