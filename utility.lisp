@@ -20,3 +20,6 @@
       acc 
       (let ((e (car a-list))) 
 	(list->plist (cdr a-list) (append acc `(,(sym->keyword e) ,e))))))
+
+(defun file-size (f-name)
+  (with-open-file (stream f-name :direction :input :if-does-not-exist nil) (file-length stream)))
