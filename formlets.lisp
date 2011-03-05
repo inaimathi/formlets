@@ -7,6 +7,7 @@
       (:li (:span :class "label" (str (name->label name)))
 	   (cond ((equalp type :textarea) (htm (:textarea :name l-name)))
 		 ((equalp type :password) (htm (:input :name l-name :class "text-box" :type (string type))))
+		 ((equalp type :file) (htm (:input :name l-name :class "file" :type (string type))))
 		 ((equalp type :recaptcha) (htm (recaptcha)))
 		 (t (htm (:input :name l-name 
 				 :value (getf form-values (sym->keyword name))
@@ -55,6 +56,7 @@
 
 ;;Predicates
 (defun validate-recaptcha (f)
+  (declare (ignore f))
   (recaptcha-passed? (post-parameter "recaptcha_challenge_field") (post-parameter "recaptcha_response_field") (real-remote-addr)))
 
 ;;Formlet definition
