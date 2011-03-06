@@ -1,6 +1,22 @@
 (in-package :formlets)
 
-;;View related functions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Predicates
+;;;;;;;;;;;;;;;file-related
+(defun file-type? (&rest accepted-types)
+  (lambda (hunchentoot-file-tuple) 
+    (destructuring-bind (tmp origin-filename file-type) hunchentoot-file-tuple
+      (declare (ignore origin-filename tmp))
+      (member file-type accepted-types :test #'equal))))
+
+(defun file-smaller-than? (byte-size)
+  (lambda (hunchentoot-file-tuple) 
+    (> byte-size (file-size (car hunchentoot-file-tuple)))))
+
+;;;;;;;;;;;;;;;recaptcha
+(defun validate-recaptcha ()
+  (recaptcha-passed? (post-parameter "recaptcha_challenge_field") (post-parameter "recaptcha_response_field") (real-remote-addr)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;View related functions
 (defun show-form-field (name type form-values form-errors)
   (let* ((s-name (string name)) (l-name (string-downcase s-name)))
     (html-to-stout
@@ -14,56 +30,39 @@
 				 :class "text-box" :type (string type)))))
 	   (show-error form-errors (sym->keyword name))))))
 
-(defmacro show-form ((form-name values errors &key (submit "Submit")) &body fields)
+(defmacro show-form ((form-name values errors &key (submit "Submit") (enctype "application/x-www-form-urlencoded")) &body fields)
   (let ((n (string-downcase (string form-name))))
     `(html-to-stout
        (show-general-error ,errors)
-       (:form :name ,n :id ,n :action ,(string-downcase (format nil "/validate-~a" n)) :method "post"
+       (:form :name ,n :id ,n :action ,(string-downcase (format nil "/validate-~a" n)) :enctype ,enctype :method "post"
 	      (:ul :class "form-fields"
 		   ,@(mapcar (lambda (field) 
 			       `(show-form-field ',(car field) ',(cadr field) ,values ,errors))
 			     fields)
 		   (:li (:span :class "label") (:input :type "submit" :class "submit" :value ,submit)))))))
 
-;;Validation related functions
-(defmacro validate-field ((field-name fail-message errors) test-fn)
-  (if test-fn
-      `(if (,test-fn ,field-name) 
-	   ,errors
-	   (append ,errors '(,(sym->keyword field-name) ,fail-message)))
-      `,errors))
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Validation related functions
 (defmacro validate-form ((origin-fn &key fields general) &body on-success)
-  (let ((field-names (mapcar (lambda (f) (car f)) fields)))
-    `(let ((results '()))
-       (progn ,@(mapcar 
-		 (lambda (field) 
-		   (let ((test-field (caddr field))
-			 (field-type (cadr field)))
-		     (cond (test-field 
-			    `(setq results (validate-field (,(car field) ,(or general (cadddr field)) results) ,test-field)))
-			   ((equalp :recaptcha field-type)
-			    `(setq results 
-				   (validate-field (,(car field) "You seem to have mistyped the recaptcha" results) 
-						   validate-recaptcha))))))
-		 fields))
-       (if (not results) 
-	   (progn ,@on-success)
-	   (,origin-fn :form-values (list ,@(list->plist field-names)) 
-		       :form-errors ,(if general 
-					`(list :general-error ,general)
-					'results))))))
+  `(let ((results (list ,@(loop for field in fields
+			     collect (sym->keyword (car field))
+			     when (equalp :recaptcha (cadr field))
+			     collect `(unless (validate-recaptcha) "You seem to have mistyped the recaptcha")
+			     when (caddr field)
+			     collect `(unless (funcall ,(caddr field) ,(car field)) ,(or (cadddr field) general))
+			     else collect nil))))
+     (if (all-valid? results)
+	 (progn ,@on-success)
+	 (,origin-fn :form-values (list ,@(loop for field in fields 
+					     unless (member (cadr field) '(:password :file))
+					     collect (sym->keyword (car field)) and collect (car field)))
+		     :form-errors ,(if general `(list :general-error ,general) 'results)))))
 
-;;Predicates
-(defun validate-recaptcha (f)
-  (declare (ignore f))
-  (recaptcha-passed? (post-parameter "recaptcha_challenge_field") (post-parameter "recaptcha_response_field") (real-remote-addr)))
-
-;;Formlet definition
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Formlet definition
 (defmacro def-formlet (formlet-name (source-fn fields &key general submit) &body on-success)
-  (let ((name+type (mapcar (lambda (f) (list (car f) (cadr f))) fields))
-	(f-names (mapcar #'car fields)))
+  (let* ((enctype "application/x-www-form-urlencoded")
+	 (name+type (loop for f in fields collecting (list (car f) (cadr f)) when (equalp (cadr f) :file) do (setf enctype "multipart/form-data")))
+	 (f-names (mapcar #'car fields)))
     `(progn (defun ,(intern (format nil "SHOW-~a-FORM" formlet-name)) (values errors)
-	      (show-form (,formlet-name values errors :submit ,submit) ,@name+type))
+	      (show-form (,formlet-name values errors :submit ,submit :enctype ,enctype) ,@name+type))
 	    (define-easy-handler (,(intern (format nil "VALIDATE-~a" formlet-name)) :uri ,(format nil "/validate-~(~a~)" formlet-name)) ,f-names
 	      (validate-form (,source-fn :fields ,fields :general ,general) ,@on-success)))))

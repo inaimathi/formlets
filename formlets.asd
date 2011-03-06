@@ -32,4 +32,4 @@
 	       (:file "utility" :depends-on ("package"))
 	       (:file "recaptcha" :depends-on ("package" "utility"))
 	       (:file "formlets" :depends-on ("package" "utility" "recaptcha")))
-  :depends-on (:cl-who :drakma :hunchentoot))
+  :depends-on (:cl-who :drakma :hunchentoot :cl-ppcre))
