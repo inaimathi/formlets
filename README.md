@@ -3,6 +3,13 @@ Formlets
 
 An implementation of self-validating formlets for Hunchentoot.
 
+News
+----
+
+- support for inputs of type `file` has been added. This includes changing `enctype` to `multipart/form-data` when necessary
+- there are now a few packaged predicates such as `longer-than?`, `matches?` and `file-smaller-than?`. See below for usage
+- validation functions have been re-written for clarity (they now make heavy use of the `loop` macro instead of explicit recursion)
+
 Goals
 -----
 
@@ -23,7 +30,7 @@ A declaration and `show-formlet` call is all that should be required to display,
 Automatically wraps the generated form in a UL and provides CSS classes and ids as hooks for the designers, making the look and feel easily customizable.
 
 ### Completeness
-The system will eventually support the full complement of HTML form elements, including `select`, `checkbox` and `radio`, as well as higher-level inputs like `date` or `slider`. Currently, it only supports `password`, `text`, `textarea` and `recaptcha`.
+The system will eventually support the full complement of HTML form elements, including `select`, `checkbox` and `radio`, as well as higher-level inputs like `date` or `slider`. Currently, it only supports `password`, `text`, `textarea`, `file` and `recaptcha`.
 
 Non-Goals
 ---------
@@ -39,6 +46,24 @@ While there are no assumptions about the CSS, formlet HTML markup is fixed by th
 
 Usage
 -----
+
+### Predicates (new)
+
+Formlets now includes a number of predicate generators for external use. These cover the common situations so that you won't typically have to pass around raw `lambdas`. They all return predicate functions as output, so they aren't yet easily composable (I'm working on it). 
+
+The following four are pretty self explanatory. Longer/shorter checks the length of a string. `matches?` passes if the given regex returns a result for the given input, and `mismatches?` is the opposite.
+
++ `longer-than?` :: Num -> fn 
++ `shorter-than?` :: Num -> fn
++ `matches?` :: regex -> fn
++ `mismatches?` :: regex -> fn
+
+The file predicates expect a [hunchentoot file tuple](http://weitz.de/hunchentoot/#upload) instead of a string, but act the same from the users' perspective. `file-type?` takes any number of type-strings and makes sure that the given files' content type matches one of them. You can find a list of common mimetypes [here](http://www.utoronto.ca/web/htmldocs/book/book-3ed/appb/mimetype.html). It doesn't rely on file extensions. `file-smaller-than?` takes a number of bytes and checks if the given file is smaller.
+
++ `file-type?` :: [File-type-string] -> fn
++ `file-smaller-than?` :: Size-in-bytes -> fn
+
+### Tutorial
 
 An example form declaration using a general validation message:
 
@@ -66,8 +91,8 @@ An example form using individual input validation:
 	(def-formlet register 
 	    (register-page 
 	     ((user-name :text (lambda (f) (and (not (equalp "" f)) (not (user-exists? f)))) "That name has already been taken")
-	      (password :password (lambda (f) (< 4 (length f))) "Your password must be longer than 4 characters")
-	      (confirm-password :password (lambda (f) (equalp f password)) "You must enter the same password in 'confirm password'")
+	      (password :password (longer-than? 4) "Your password must be longer than 4 characters")
+	      (confirm-password :password (lambda (f) (string= f password)) "You must enter the same password in 'confirm password'")
 	      (captcha :recaptcha))
 	     :submit "Register")
 	  (let ((id (register user-name password)))
