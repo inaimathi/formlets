@@ -1,6 +1,12 @@
 (in-package :formlets)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Predicates
+;;;;;;;;;;;;;;;basic field predicates
+(defun longer-than? (num) (lambda (f) (> (length f) num)))
+(defun shorter-than? (num) (lambda (f) (< (length f) num)))
+(defun matches? (regex) (lambda (f) (scan regex f)))
+(defun mismatches? (regex) (lambda (f) (not (scan regex f))))
+
 ;;;;;;;;;;;;;;;file-related
 (defun file-type? (&rest accepted-types)
   (lambda (hunchentoot-file-tuple) 
