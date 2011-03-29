@@ -8,11 +8,10 @@
 (defun mismatches? (regex) (lambda (f) (not (scan regex f))))
 
 ;;;;;;;;;;;;;;;file-related
+;; a hunchentoot file tuple is '(temp-filename origin-filename file-mimetype)
 (defun file-type? (&rest accepted-types)
   (lambda (hunchentoot-file-tuple) 
-    (destructuring-bind (tmp origin-filename file-type) hunchentoot-file-tuple
-      (declare (ignore origin-filename tmp))
-      (member file-type accepted-types :test #'equal))))
+    (member (third hunchentoot-file-tuple) accepted-types :test #'equal)))
 
 (defun file-smaller-than? (byte-size)
   (lambda (hunchentoot-file-tuple) 
