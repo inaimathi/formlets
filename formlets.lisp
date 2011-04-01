@@ -26,13 +26,14 @@
   (let* ((s-name (string name)) (l-name (string-downcase s-name)))
     (html-to-stout
       (:li (:span :class "label" (str (name->label name)))
-	   (cond ((equalp type :textarea) (htm (:textarea :name l-name)))
-		 ((equalp type :password) (htm (:input :name l-name :class "text-box" :type (string type))))
-		 ((equalp type :file) (htm (:input :name l-name :class "file" :type (string type))))
-		 ((equalp type :recaptcha) (htm (recaptcha)))
-		 (t (htm (:input :name l-name 
-				 :value (getf form-values (sym->keyword name))
-				 :class "text-box" :type (string type)))))
+	   (case type 
+	     (:textarea (htm (:textarea :name l-name (str (getf form-values (sym->keyword name))))))
+	     (:password (htm (:input :name l-name :class "text-box" :type (string type))))
+	     (:file (htm (:input :name l-name :class "file" :type (string type))))
+	     (:recaptcha (htm (recaptcha)))
+	     (otherwise (htm (:input :name l-name 
+				     :value (getf form-values (sym->keyword name))
+				     :class "text-box" :type (string type)))))
 	   (show-error form-errors (sym->keyword name))))))
 
 (defmacro show-form ((form-name values errors &key (submit "Submit") (enctype "application/x-www-form-urlencoded")) &body fields)
