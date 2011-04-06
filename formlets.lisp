@@ -51,17 +51,19 @@
 (defmacro validate-form ((origin-fn &key fields general) &body on-success)
   `(let ((results (list ,@(loop for field in fields
 			     collect (sym->keyword (car field))
-			     when (equalp :recaptcha (cadr field))
-			     collect `(unless (validate-recaptcha) "You seem to have mistyped the recaptcha")
-			     when (caddr field)
-			     collect `(unless (funcall ,(caddr field) ,(car field)) ,(or (cadddr field) general))
+			     when (apply #'validate-field field) collect it
 			     else collect nil))))
      (if (all-valid? results)
 	 (progn ,@on-success)
 	 (,origin-fn :form-values (list ,@(loop for field in fields 
-					     unless (member (cadr field) '(:password :file))
+					     unless (member (cadr field) '(:password :file :recaptcha))
 					     collect (sym->keyword (car field)) and collect (car field)))
 		     :form-errors ,(if general `(list :general-error ,general) 'results)))))
+
+(defun validate-field (field-value field-type &optional validation-fn error-message)
+  (cond ((equalp :recaptcha field-type) `(unless (validate-recaptcha) "You seem to have mistyped the recaptcha"))
+	(validation-fn `(unless (funcall ,validation-fn ,field-value) ,error-message))
+	(t nil)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Formlet definition
 (defmacro def-formlet (formlet-name (source-fn fields &key general submit) &body on-success)
