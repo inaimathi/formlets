@@ -51,7 +51,7 @@
 (defmacro validate-form ((origin-fn &key fields general) &body on-success)
   `(let ((results (list ,@(loop for field in fields
 			     collect (sym->keyword (car field))
-			     when (apply #'validate-field field) collect it
+			     when (validate-field (car field) (cadr field) (caddr field) (or (cadddr field) general)) collect it
 			     else collect nil))))
      (if (all-valid? results)
 	 (progn ,@on-success)
