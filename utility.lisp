@@ -4,6 +4,10 @@
 (defmacro html-to-stout (&body body)
   `(with-html-output (*standard-output* nil :indent t) ,@body))
 
+(defmacro html-to-str (&body body)
+  "Returns HTML as a string, as well as printing to standard-out"
+  `(with-html-output-to-string (*standard-output*) ,@body))
+
 (defun sym->keyword (s) (intern (symbol-name s) :keyword))
 
 (defun file-size (f-name)

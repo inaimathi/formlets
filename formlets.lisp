@@ -49,10 +49,9 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Validation related functions
 (defmacro validate-form ((origin-fn &key fields general) &body on-success)
-  `(let ((results (list ,@(loop for field in fields
-			     collect (sym->keyword (car field))
-			     when (validate-field (car field) (cadr field) (caddr field) (or (cadddr field) general)) collect it
-			     else collect nil))))
+  `(let ((results (list ,@(loop for (field-name field-type . fn/message-list) in fields
+			     collect (sym->keyword field-name)
+			     collect (validate-field field-name field-type fn/message-list general)))))
      (if (all-valid? results)
 	 (progn ,@on-success)
 	 (,origin-fn :form-values (list ,@(loop for field in fields 
@@ -60,10 +59,19 @@
 					     collect (sym->keyword (car field)) and collect (car field)))
 		     :form-errors ,(if general `(list :general-error ,general) 'results)))))
 
-(defun validate-field (field-value field-type &optional validation-fn error-message)
+(defun validate-field (field-value field-type fn/message-list general-error-message)
   (cond ((equalp :recaptcha field-type) `(unless (validate-recaptcha) "You seem to have mistyped the recaptcha"))
-	(validation-fn `(unless (funcall ,validation-fn ,field-value) ,error-message))
-	(t nil)))
+	((null fn/message-list) nil)
+	(general-error-message `(unless (funcall ,(car fn/message-list) ,field-value) ,general-error-message))
+	((= 2 (length fn/message-list)) `(unless (funcall ,(car fn/message-list) ,field-value) ,(cadr fn/message-list)))
+	(t `(combine-errors (loop for (val-fn error-message) on (list ,@fn/message-list) by #'cddr
+			       collect (unless (funcall val-fn ,field-value) error-message))))))
+	
+(defun combine-errors (list-of-errors)
+  (when (remove-if #'null list-of-errors) 
+    (html-to-str 
+      (dolist (e list-of-errors)
+	(when e (htm (:p (str e))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Formlet definition
 (defmacro def-formlet (formlet-name (source-fn fields &key general submit) &body on-success)
