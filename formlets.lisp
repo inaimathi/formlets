@@ -1,84 +1,171 @@
 (in-package :formlets)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Predicates
-;;;;;;;;;;;;;;;basic field predicates
-(defun longer-than? (num) (lambda (f) (> (length f) num)))
-(defun shorter-than? (num) (lambda (f) (< (length f) num)))
-(defun matches? (regex) (lambda (f) (scan regex f)))
-(defun mismatches? (regex) (lambda (f) (not (scan regex f))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; CLASS DECLARATIONS
+(defclass formlet ()
+  ((name			 :reader name			:initarg :name)
+   (fields			 :reader fields			:initarg :fields)
+   (validation-functions 	 :accessor validation-functions :initarg :validation-functions	 :initform nil)
+   (error-messages	 	 :reader error-messages		:initarg :error-messages 	 :initform nil)
+   (submit-caption		 :reader submit			:initarg :submit		 :initform "Submit")
+   (enctype			 :accessor enctype		:initarg :enctype		 :initform "application/x-www-form-urlencoded")
+   (on-success			 :reader on-success		:initarg :on-success)))
 
-;;;;;;;;;;;;;;;file-related
-;; a hunchentoot file tuple is '(temp-filename origin-filename file-mimetype)
-(defun file-type? (&rest accepted-types)
-  (lambda (hunchentoot-file-tuple) 
-    (member (third hunchentoot-file-tuple) accepted-types :test #'equal)))
+(defclass formlet-field ()
+  ((name			:reader name			:initarg :name)
+   (validation-functions	:accessor validation-functions	:initarg :validation-functions	:initform nil)
+   (default-value		:reader default-value		:initarg :default-value		:initform nil)
+   (error-messages		:accessor error-messages	:initarg :error-messages	:initform nil)))
 
-(defun file-smaller-than? (byte-size)
-  (lambda (hunchentoot-file-tuple) 
-    (> byte-size (file-size (car hunchentoot-file-tuple)))))
+(defclass text (formlet-field) ())
+(defclass textarea (formlet-field) ())
+(defclass password (formlet-field) ())
+(defclass file (formlet-field) ())
+(defclass checkbox (formlet-field) ())
 
-;;;;;;;;;;;;;;;recaptcha
-(defun validate-recaptcha ()
-  (recaptcha-passed? (post-parameter "recaptcha_challenge_field") (post-parameter "recaptcha_response_field") (real-remote-addr)))
+(defclass formlet-field-set (formlet-field)
+  ((value-set :reader value-set :initarg :value-set :initform nil))
+  (:documentation "This class is for fields that show the user a list of options"))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;View related functions
-(defun show-form-field (name type form-values form-errors)
-  (let* ((s-name (string name)) (l-name (string-downcase s-name)))
+(defclass select (formlet-field-set) ())
+(defclass radio-set (formlet-field-set) ())
+
+(defclass formlet-field-return-set (formlet-field-set) ()
+  (:documentation "This class is specifically for fields that return multiple values from the user"))
+
+(defclass multi-select (formlet-field-return-set) ())
+(defclass checkbox-set (formlet-field-return-set) ())
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; METHODS
+;;;;;;;;;;post-value
+;;;;NOTE:   This section exists because Hunchentoots' (post-parameter [field-name])
+;;        returns a single value. This is problematic for multi-select boxes and checkbox sets
+;;        (both of which potentially return multiple values from the user).
+;;          post-value is not necessarily Hunchentoot specific, but it does expect values in the form of an alist
+
+(defmethod post-value ((formlet formlet) post-alist)
+  (mapcar (lambda (f) (post-value f post-alist)) (fields formlet)))
+
+(defmethod post-value ((field formlet-field) post-alist)
+  (cdr (assoc (name field) post-alist :test #'string=)))
+
+(defmethod post-value ((field formlet-field-return-set) post-alist)
+  (loop for (k . v) in post-alist
+	if (string= k (name field)) collect v))
+  
+;;;;;;;;;;validate
+;;;;;NOTE: The validate methods each return (values [validation result] [errors]). 
+;;         [validation result] is a boolean
+;;         [errors] can be either a list or tree of strings
+
+(defmethod validate ((formlet formlet) form-values)
+  (let ((errors (if (validation-functions formlet)
+		    (loop for f in (validation-functions formlet)
+			  for msg in (error-messages formlet)
+			  unless (apply f form-values) collect msg)
+		    (loop for f in (fields formlet)
+			  for v in form-values
+			  collect (multiple-value-bind (result error) (validate f v) (unless result error))))))
+    (values (every #'null errors) errors)))
+
+(defmethod validate ((field formlet-field) value)
+  "Returns (values T NIL) if there are no errors, and (values NIL list-of-errors). 
+   By default, a formlet-field passes only its own value to its validation functions."
+  (let ((errors (loop for fn in (validation-functions field)
+		      for msg in (error-messages field)
+		      unless (funcall fn value) collect msg)))
+    (values (every #'null errors) errors)))
+
+;;;;;;;;;;show
+;;;; The show functions just take a formlet/(-field)?/ (along with its value/s?/ and error/s?/)
+;;   and output the corresponding HTML. This part is cl-who specific, but it could be easily made portable
+;;   by replacing html-to-stout and html-to-str with raw format calls
+
+(defmethod show ((formlet formlet) &optional values errors)
+  (with-slots (error-messages name enctype) formlet
     (html-to-stout
-      (:li (:span :class "label" (str (name->label name)))
-	   (case type 
-	     (:textarea (htm (:textarea :name l-name (str (getf form-values (sym->keyword name))))))
-	     (:password (htm (:input :name l-name :class "text-box" :type (string type))))
-	     (:file (htm (:input :name l-name :class "file" :type (string type))))
-	     (:recaptcha (htm (recaptcha)))
-	     (otherwise (htm (:input :name l-name 
-				     :value (getf form-values (sym->keyword name))
-				     :class "text-box" :type (string type)))))
-	   (show-error form-errors (sym->keyword name))))))
+      (when (and (not (every #'null errors)) error-messages) 
+	(htm (:span :class "general-error" (str (show error-messages)))))
+      (:form :name (name formlet) :id name :action (format nil "/validate-~(~a~)" name) :enctype enctype :method "post"
+	     (:ul :class "form-fields"
+		  (loop for a-field in (fields formlet)
+			for e in errors
+			for v in values
+			do (htm (:li (:span :class "label" (str (string-capitalize (regex-replace-all "-" (name a-field) " "))))
+				     (str (show a-field v (when (and e (not error-messages)) e))))))
+		  (:li (:span :class "label") (:input :type "submit" :class "submit" :value (submit formlet))))))))
 
-(defmacro show-form ((form-name values errors &key (submit "Submit") (enctype "application/x-www-form-urlencoded")) &body fields)
-  (let ((n (string-downcase (string form-name))))
-    `(html-to-stout
-       (show-general-error ,errors)
-       (:form :name ,n :id ,n :action ,(string-downcase (format nil "/validate-~a" n)) :enctype ,enctype :method "post"
-	      (:ul :class "form-fields"
-		   ,@(mapcar (lambda (field) 
-			       `(show-form-field ',(car field) ',(cadr field) ,values ,errors))
-			     fields)
-		   (:li (:span :class "label") (:input :type "submit" :class "submit" :value ,submit)))))))
+(defmethod show ((list-of-string list) &optional v e)
+  "A method for showing error output in the Formlets module"
+  (declare (ignore v e))
+  (when list-of-string
+    (html-to-str (:span :class "formlet-error" (dolist (s list-of-string) (htm (:p (str s))))))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Validation related functions
-(defmacro validate-form ((origin-fn &key fields general) &body on-success)
-  `(let ((results (list ,@(loop for (field-name field-type . fn/message-list) in fields
-			     collect (sym->keyword field-name)
-			     collect (validate-field field-name field-type fn/message-list general)))))
-     (if (all-valid? results)
-	 (progn ,@on-success)
-	 (,origin-fn :form-values (list ,@(loop for field in fields 
-					     unless (member (cadr field) '(:password :file :recaptcha))
-					     collect (sym->keyword (car field)) and collect (car field)))
-		     :form-errors ,(if general `(list :general-error ,general) 'results)))))
+(defmethod show ((field formlet-field) &optional value error)
+  (html-to-str (:input :name (name field) :value value :class "text-box") (str (show error))))
 
-(defun validate-field (field-value field-type fn/message-list general-error-message)
-  (cond ((equalp :recaptcha field-type) `(unless (validate-recaptcha) "You seem to have mistyped the recaptcha"))
-	((null fn/message-list) nil)
-	(general-error-message `(unless (funcall ,(car fn/message-list) ,field-value) ,general-error-message))
-	((= 2 (length fn/message-list)) `(unless (funcall ,(car fn/message-list) ,field-value) ,(cadr fn/message-list)))
-	(t `(combine-errors (loop for (val-fn error-message) on (list ,@fn/message-list) by #'cddr
-			       collect (unless (funcall val-fn ,field-value) error-message))))))
-	
-(defun combine-errors (list-of-errors)
-  (when (remove-if #'null list-of-errors) 
-    (html-to-str 
-      (dolist (e list-of-errors)
-	(when e (htm (:p (str e))))))))
+(defmethod show ((field textarea) &optional value error)
+  (html-to-str (:textarea :name (name field) (str value)) (str (show error))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Formlet definition
-(defmacro def-formlet (formlet-name (source-fn fields &key general submit) &body on-success)
-  (let* ((enctype "application/x-www-form-urlencoded")
-	 (name+type (loop for f in fields collecting (list (car f) (cadr f)) when (equalp (cadr f) :file) do (setf enctype "multipart/form-data")))
-	 (f-names (mapcar #'car fields)))
-    `(progn (defun ,(intern (format nil "SHOW-~a-FORM" formlet-name)) (values errors)
-	      (show-form (,formlet-name values errors :submit ,submit :enctype ,enctype) ,@name+type))
-	    (define-easy-handler (,(intern (format nil "VALIDATE-~a" formlet-name)) :uri ,(format nil "/validate-~(~a~)" formlet-name)) ,f-names
-	      (validate-form (,source-fn :fields ,fields :general ,general) ,@on-success)))))
+(defmethod show ((field password) &optional value error)
+  (html-to-str (:input :name (name field) :type "password" :class "text-box") (str (show error))))
+
+(defmethod show ((field file) &optional value error)
+  (html-to-str (:input :name (name field) :type "file" :class "file") (str (show error))))
+
+(defmethod show ((field select) &optional value error)
+  (html-to-str (:select :name (name field)
+			(loop for v in (value-set field) 
+			      do (htm (:option :value v :selected (when (string= v value) "selected") (str v)))))
+	       (str (show error))))
+
+(defmethod show ((field checkbox) &optional value error)
+  (html-to-str (:input :type "checkbox" :name (name field) :value (name field)
+		       :checked (when (string= (name field) value) "checked"))
+	       (str (show error))))
+
+(defmethod show ((field radio-set) &optional value error)
+  (html-to-str (loop for v in (value-set field)
+		     do (htm (:span :class "input+label" 
+					   (:input :type "radio" :name (name field) :value v 
+						   :checked (when (string= v value) "checked"))
+					   (str v))))
+	       (str (show error))))
+
+
+(defmethod show ((field multi-select) &optional value error)
+  (html-to-str (:select :name (name field) :multiple "multiple" :size 5
+			(loop for v in (value-set field)
+			      do (htm (:option :value v 
+					       :selected (when (member v value :test #'string=) "selected")
+							 (str v)))))
+	       (str (show error))))
+
+(defmethod show ((field checkbox-set) &optional value error)
+  (html-to-str (loop for v in (value-set field)
+		     do (htm (:span :class "input+label"
+					   (:input :type "checkbox" :name (name field) :value v 
+						   :checked (when (member v value :test #'string=) "checked"))
+					   (str v))))
+	       (str (show error))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; PREDICATES
+(defmacro define-predicate (name (&rest args) &body body)
+  `(defun ,name ,args (lambda (val) ,@body)))
+
+;;;;;;;;;; basic field predicates
+(define-predicate longer-than? (num) (> (length val) num))
+(define-predicate shorter-than? (num) (< (length val) num))
+(define-predicate matches? (regex) (scan regex val))
+(define-predicate mismatches? (regex) (not (scan regex val)))
+(define-predicate not-blank? () (or (null val) (and (stringp val) (not (string= "" val)))))
+(define-predicate same-as? (field-name-string) (string= val (post-parameter field-name-string)))
+
+;;;;;;;;;; file-related
+;; a hunchentoot file tuple is '([temp filename] [origin filename] [file mimetype])
+(define-predicate file-type? (&rest accepted-types) (member (third val) accepted-types :test #'equal))
+(define-predicate file-smaller-than? (byte-size) (> byte-size (file-size (car val))))
+
+;;;;;;;;;; set-related
+(define-predicate picked-more-than? (num) (> (length val) num))
+(define-predicate picked-fewer-than? (num) (< (length val) num))
+(define-predicate picked-exactly? (num) (= (length val) num))

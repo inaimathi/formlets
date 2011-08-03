@@ -20,7 +20,7 @@
 ;; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 ;; THE SOFTWARE.
 
-(defpackage "FORMLETS-SYSTEM" (:use :cl :asdf))
+(defpackage :formlets-system (:use :cl :asdf))
 (in-package :formlets-system)
 (defsystem formlets
   :version "0.1"
@@ -30,6 +30,7 @@
   :description "Validating formlets for Hunchentoot"
   :components ((:file "package")
 	       (:file "utility" :depends-on ("package"))
-	       (:file "recaptcha" :depends-on ("package" "utility"))
-	       (:file "formlets" :depends-on ("package" "utility" "recaptcha")))
+	       (:file "formlets" :depends-on ("package" "utility"))
+	       (:file "recaptcha" :depends-on ("package" "utility" "formlets"))
+	       (:file "macros" :depends-on ("package" "utility" "formlets")))
   :depends-on (:cl-who :drakma :hunchentoot :cl-ppcre))
