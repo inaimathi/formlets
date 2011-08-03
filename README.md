@@ -130,5 +130,5 @@ A formlet declaration breaks down as
 + `name` is used to generate the CSS id and name of the form, as well as determine the final name of this formlets' instance and validation handler.
 + `fields` should be one or more form fields as defined above
 + `submit` is just the text that will appear on this formlets' submit button
-+ If the `general-validation` is present, it will be displayed above the form in the event of an error (and none of the individual warnings will be shown). This is useful for places like login forms, where you don't want to tell potential attackers which fields they got wrong.
++ If the `general-validation` is present, any field-specific validation values are ignored, and the form is validated according to this function/message sequence (`general-validation` here expects the same input as `validation` in the field declaration). Any general validation functions are going to be `apply`ed to the list of all values for the formlet (for instance, in the `login` example above, `check-password` would be `apply`ed to `(list user-name password)`
 + Finally, `on-success` is a body parameter that determines what to do if the form validates properly
