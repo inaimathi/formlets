@@ -41,7 +41,7 @@ Semi-Goals
 ---------
 
 ### Portability
-The system assumes Hunchentoot + cl-who. This allows the internal code to take advantage of HTML generation, as opposed to tag `format`ting, and make use of `post-parameters*` and the Hunchentoot `session`. That said, porting away from cl-who would only involve re-defining the `show` methods, and porting away from Hunchentoot would involve re-writing the `define-formlet` and `show-formlet` macros to accomodate another `session` and `POST` model. I have no experience with this, but patches welcome.
+The system assumes Hunchentoot + cl-who. This allows the internal code to take advantage of HTML generation, as opposed to tag `format`ting, and make use of `post-parameters*` and the Hunchentoot `session`. That said, porting away from cl-who would only involve re-defining the `show` methods, and porting away from Hunchentoot would involve re-writing the `define-formlet` and `show-formlet` macros to accomodate another `session` and `POST` model.
 
 ### Run-time efficiency
 The module is aimed at simplifying HTML form use for the developer. This is a place that's by definition bound by the slower of user speed or network speed. Furthermore, a single form is very rarely more than 20 inputs long in practice. Pieces will be made efficient where possible, but emphasis will not be placed on it.
