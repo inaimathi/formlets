@@ -59,9 +59,11 @@
 
 (defmethod validate ((formlet formlet) form-values)
   (let ((errors (if (validation-functions formlet)
-		    (loop for f in (validation-functions formlet)
-			  for msg in (error-messages formlet)
-			  unless (apply f form-values) collect msg)
+		    (make-list (length (fields formlet)) ;;so that elements don't get cut off
+			       :initial-element
+			       (loop for f in (validation-functions formlet)
+				     for msg in (error-messages formlet)
+				     unless (apply f form-values) collect msg))
 		    (loop for f in (fields formlet)
 			  for v in form-values
 			  collect (multiple-value-bind (result error) (validate f v) (unless result error))))))
@@ -84,7 +86,7 @@
   (with-slots (error-messages name enctype) formlet
     (html-to-stout
       (when (and (not (every #'null errors)) error-messages) 
-	(htm (:span :class "general-error" (str (show error-messages)))))
+	(htm (:span :class "general-error" (str (show (car errors))))))
       (:form :name (name formlet) :id name :action (format nil "/validate-~(~a~)" name) :enctype enctype :method "post"
 	     (:ul :class "form-fields"
 		  (loop for a-field in (fields formlet)
