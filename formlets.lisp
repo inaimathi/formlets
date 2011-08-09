@@ -165,7 +165,7 @@
 ;;;;;;;;;; file-related
 ;; a hunchentoot file tuple is '([temp filename] [origin filename] [file mimetype])
 (define-predicate file-type? (&rest accepted-types) (member (third val) accepted-types :test #'equal))
-(define-predicate file-smaller-than? (byte-size) (> byte-size (file-size (car val))))
+(define-predicate file-smaller-than? (byte-size) (and (car val) (> byte-size (file-size (car val)))))
 
 ;;;;;;;;;; set-related
 (define-predicate picked-more-than? (num) (> (length val) num))
