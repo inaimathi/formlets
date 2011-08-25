@@ -48,16 +48,25 @@
 			   (session-value :formlet-name) ',name)
 		     (redirect (referer)))))))))))
 
-(defmacro show-formlet (formlet-name)
+(defun ensure-list-length (list desired-length)
+  (assert (and (integerp desired-length) (< 0 desired-length)))
+  (cond ((= (length list) desired-length) list)
+	((> (length list) desired-length) (butlast list (- (length list) desired-length)))
+	((< (length list) desired-length)
+	 (append list (make-list (- desired-length (length list)))))))
+
+(defmacro show-formlet (formlet-name &key default-values)
   "Shortcut for displaying a formlet.
    It outputs the formlet HTML to standard-out (with indenting).
    If this is the last submitted formlet in session, display field values and errors, then clear out the formlet-related session information."
-  `(let ((val (if (eq (session-value :formlet-name) ',formlet-name)
-		  (session-value :formlet-values)
-		  (make-list (length (formlets::fields ,formlet-name)))))
-	 (err (if (eq (session-value :formlet-name) ',formlet-name)
-		  (session-value :formlet-errors)
-		  (make-list (length (formlets::fields ,formlet-name))))))
+  `(let* ((default-val ,default-values)
+	  (val (cond ((eq (session-value :formlet-name) ',formlet-name) 
+		      (session-value :formlet-values))
+		     (default-val (ensure-list-length default-val (length (formlets::fields ,formlet-name))))
+		     (t (make-list (length (formlets::fields ,formlet-name))))))
+	  (err (if (eq (session-value :formlet-name) ',formlet-name)
+		   (session-value :formlet-errors)
+		   (make-list (length (formlets::fields ,formlet-name))))))
      (show ,formlet-name val err)
      (when (eq (session-value :formlet-name) ',formlet-name)
        (delete-session-value :formlet-name)

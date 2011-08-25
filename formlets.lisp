@@ -15,25 +15,23 @@
    (validation-functions	:accessor validation-functions	:initarg :validation-functions	:initform nil)
    (default-value		:reader default-value		:initarg :default-value		:initform nil)
    (error-messages		:accessor error-messages	:initarg :error-messages	:initform nil)))
+(defclass hidden			(formlet-field) ())
+(defclass text				(formlet-field) ())
+(defclass textarea			(formlet-field) ())
+(defclass password			(formlet-field) ())
+(defclass file				(formlet-field) ())
+(defclass checkbox			(formlet-field) ())
 
-(defclass text (formlet-field) ())
-(defclass textarea (formlet-field) ())
-(defclass password (formlet-field) ())
-(defclass file (formlet-field) ())
-(defclass checkbox (formlet-field) ())
-
-(defclass formlet-field-set (formlet-field)
+(defclass formlet-field-set		(formlet-field)
   ((value-set :reader value-set :initarg :value-set :initform nil))
   (:documentation "This class is for fields that show the user a list of options"))
+(defclass select			(formlet-field-set) ())
+(defclass radio-set			(formlet-field-set) ())
 
-(defclass select (formlet-field-set) ())
-(defclass radio-set (formlet-field-set) ())
-
-(defclass formlet-field-return-set (formlet-field-set) ()
+(defclass formlet-field-return-set	(formlet-field-set) ()
   (:documentation "This class is specifically for fields that return multiple values from the user"))
-
-(defclass multi-select (formlet-field-return-set) ())
-(defclass checkbox-set (formlet-field-return-set) ())
+(defclass multi-select			(formlet-field-return-set) ())
+(defclass checkbox-set			(formlet-field-return-set) ())
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; METHODS
 ;;;;;;;;;;post-value
@@ -85,70 +83,64 @@
 (defmethod show ((formlet formlet) &optional values errors)
   (with-slots (error-messages name enctype) formlet
     (html-to-stout
-      (when (and (not (every #'null errors)) error-messages) 
-	(htm (:span :class "general-error" (str (show (car errors))))))
-      (:form :name (name formlet) :id name :action (format nil "/validate-~(~a~)" name) :enctype enctype :method "post"
+      (when (and (not (every #'null errors)) error-messages)
+	(htm (:span :class "general-error" 
+		    (dolist (s (car errors)) 
+				  (htm (:p (str s)))))))
+      (:form :name (string-downcase name) :id (string-downcase name) :action (format nil "/validate-~(~a~)" name) :enctype enctype :method "post"
 	     (:ul :class "form-fields"
 		  (loop for a-field in (fields formlet)
 			for e in errors
 			for v in values
-			do (htm (:li (:span :class "label" (str (string-capitalize (regex-replace-all "-" (name a-field) " "))))
-				     (str (show a-field v (when (and e (not error-messages)) e))))))
+			do (str (show a-field v (when (and e (not error-messages)) e))))
 		  (:li (:span :class "label") (:input :type "submit" :class "submit" :value (submit formlet))))))))
 
-(defmethod show ((list-of-string list) &optional v e)
-  "A method for showing error output in the Formlets module"
-  (declare (ignore v e))
-  (when list-of-string
-    (html-to-str (:span :class "formlet-error" (dolist (s list-of-string) (htm (:p (str s))))))))
+(defmethod show ((field hidden) &optional value error)
+  (html-to-str (:input :name (name field) :value value :type "hidden")))
 
-(defmethod show ((field formlet-field) &optional value error)
-  (html-to-str (:input :name (name field) :value value :class "text-box") (str (show error))))
+(defmacro define-show (field-type &body body)
+  `(defmethod show ((field ,field-type) &optional value error)
+     (html-to-str 
+      (:li (:span :class "label" (str (string-capitalize (regex-replace-all "-" (name field) " "))))
+	   ,@body
+	   (when error (htm (:span :class "formlet-error"
+				   (dolist (s error) 
+				     (htm (:p (str s)))))))))))
 
-(defmethod show ((field textarea) &optional value error)
-  (html-to-str (:textarea :name (name field) (str value)) (str (show error))))
+(define-show formlet-field (:input :name (name field) :value value :class "text-box"))
+(define-show textarea (:textarea :name (name field) (str value)))
+(define-show password (:input :name (name field) :type "password" :class "text-box"))
+(define-show file (:input :name (name field) :type "file" :class "file"))
 
-(defmethod show ((field password) &optional value error)
-  (html-to-str (:input :name (name field) :type "password" :class "text-box") (str (show error))))
+(define-show select 
+  (:select :name (name field)
+	   (loop for v in (value-set field) 
+		 do (htm (:option :value v :selected (when (string= v value) "selected") (str v))))))
 
-(defmethod show ((field file) &optional value error)
-  (html-to-str (:input :name (name field) :type "file" :class "file") (str (show error))))
+(define-show checkbox
+  (:input :type "checkbox" :name (name field) :value (name field) 
+	  :checked (when (string= (name field) value) "checked")))
 
-(defmethod show ((field select) &optional value error)
-  (html-to-str (:select :name (name field)
-			(loop for v in (value-set field) 
-			      do (htm (:option :value v :selected (when (string= v value) "selected") (str v)))))
-	       (str (show error))))
+(define-show radio-set 
+  (loop for v in (value-set field)
+	do (htm (:span :class "input+label" 
+			      (:input :type "radio" :name (name field) :value v 
+				      :checked (when (string= v value) "checked"))
+			      (str v)))))
 
-(defmethod show ((field checkbox) &optional value error)
-  (html-to-str (:input :type "checkbox" :name (name field) :value (name field)
-		       :checked (when (string= (name field) value) "checked"))
-	       (str (show error))))
+(define-show multi-select
+  (:select :name (name field) :multiple "multiple" :size 5
+	   (loop for v in (value-set field)
+		 do (htm (:option :value v 
+				  :selected (when (member v value :test #'string=) "selected")
+					    (str v))))))
 
-(defmethod show ((field radio-set) &optional value error)
-  (html-to-str (loop for v in (value-set field)
-		     do (htm (:span :class "input+label" 
-					   (:input :type "radio" :name (name field) :value v 
-						   :checked (when (string= v value) "checked"))
-					   (str v))))
-	       (str (show error))))
-
-
-(defmethod show ((field multi-select) &optional value error)
-  (html-to-str (:select :name (name field) :multiple "multiple" :size 5
-			(loop for v in (value-set field)
-			      do (htm (:option :value v 
-					       :selected (when (member v value :test #'string=) "selected")
-							 (str v)))))
-	       (str (show error))))
-
-(defmethod show ((field checkbox-set) &optional value error)
-  (html-to-str (loop for v in (value-set field)
-		     do (htm (:span :class "input+label"
-					   (:input :type "checkbox" :name (name field) :value v 
-						   :checked (when (member v value :test #'string=) "checked"))
-					   (str v))))
-	       (str (show error))))
+(define-show checkbox-set
+  (loop for v in (value-set field)
+	do (htm (:span :class "input+label"
+			      (:input :type "checkbox" :name (name field) :value v 
+				      :checked (when (member v value :test #'string=) "checked"))
+			      (str v)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; PREDICATES
 (defmacro define-predicate (name (&rest args) &body body)

@@ -4,10 +4,25 @@
       formlets:*private-key* "your private key"
       *show-lisp-errors-p* t)
 
+(defparameter *css* ".form-fields { list-style: none; padding-bottom: 0px; }
+.form-fields li { margin-bottom: 10px; clear: both; }
+.form-fields input { margin: 0px; }
+.form-fields .text-box { border: 1px solid #1c2a51; width: 250px; }
+.form-fields textarea { border: 1px solid #1c2a51; width: 246px; height: 60px; }
+.submit { border: 1px solid #1c2a51; background-color: #1c2a51; color: #fff; font-weight: bold; padding: 3px 8px; }
+.form-fields .label { width: 130px; display: block; float: left; text-align: right; padding-right: 5px; height: 20px; }
+
+.general-error p, .formlet-error p { border: 1px solid #900; background-color: #faa; margin: 0px; padding: 2px 5px; }
+.general-error p { margin: 10px 0px 0px 195px; width: 236px; }
+
+.formlet-error { position: absolute; padding: 2px; margin-left: 5px; }
+.general-error { position: relative; }")
+
 (defmacro page-template ((&key title) &body body)
   `(with-html-output-to-string (*standard-output* nil :prologue t :indent t)
      (:html :xmlns "http://www.w3.org/1999/xhtml" :xml\:lang "en" :lang "en"
 	    (:head (:meta :http-equiv "Content-Type" :content "text/html;charset=utf-8")
+		   (:style :type "text/css" (str *css*))
 		   (:title ,@title))
 	    (:body ,@body))))
 
@@ -69,6 +84,16 @@
     (:p (str user-name))
     (:p (str password))))
 
+(define-formlet
+    (default-values-form :submit "Nope")
+    ((minus-one hidden) 
+     (one text :validation ((longer-than? 3) "It has to be longer than 3"))
+     (two textarea) 
+     (three checkbox)
+     (four checkbox-set :value-set ("one" "two" "three")))
+  (page-template (:title "You got it")
+    (:p (str (write-to-string (post-parameters*))))))
+
 (define-easy-handler (test-page :uri "/") ()
   (page-template (:title "Formlets Test Page")
     (:p (str (session-value :formlet-name)))
@@ -77,6 +102,8 @@
     (:hr) (show-formlet test-form)
     (:hr) (show-formlet test-form-two)
     (:hr) (show-formlet test-form-three)
-    (:hr) (show-formlet faux-login-form)))
+    (:hr) (show-formlet faux-login-form)
+    (:hr) (show-formlet default-values-form 
+			:default-values (list "Something" "Something else" "A textarea! Yay!" "three" (list "two")))))
 
 (defvar *web-server* (start (make-instance 'acceptor :port 4141)))
