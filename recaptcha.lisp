@@ -32,4 +32,7 @@
 			  (:br)
 			  (:textarea :name "recaptcha_challenge_field" :rows "3" :cols "40")
 			  (:input :type "hidden" :name "recaptcha_response_field" :value "manual_challenge"))
-	       (str (show error))))
+	       (when error 
+		 (htm (:span :class "formlet-error"
+			     (dolist (s error) 
+			       (htm (:p (str s)))))))))
