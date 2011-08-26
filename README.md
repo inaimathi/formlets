@@ -74,7 +74,7 @@ Finally, the newly added set-predicates expect a list of values as input from th
 + `picked-exactly?` Num -> ([String] -> Bool)
 
 ### Tutorial
-To see some example code, check out the `test.lisp` file (to see it in action, load the `formlets-test` system). An example form declaration using a general validation message:
+To see some example code, check out the `test.lisp` file (to see it in action, load the `formlets-test` system and run the `formlets-test` function, then check out localhost:4141). An example form declaration using a general validation message:
 
 	(define-formlet (login :submit "Login" :general-validation (#'check-password "I see what you did there. &#3232;_&#3232;"))
 	    ((user-name text) (password password))

@@ -18,6 +18,11 @@
 .formlet-error { position: absolute; padding: 2px; margin-left: 5px; }
 .general-error { position: relative; }")
 
+(defvar *web-server* nil)
+
+(defun formlets-test (&optional (port 4141)) 
+  (setf *web-server* (start (make-instance 'acceptor :port port))))
+
 (defmacro page-template ((&key title) &body body)
   `(with-html-output-to-string (*standard-output* nil :prologue t :indent t)
      (:html :xmlns "http://www.w3.org/1999/xhtml" :xml\:lang "en" :lang "en"
@@ -105,5 +110,3 @@
     (:hr) (show-formlet faux-login-form)
     (:hr) (show-formlet default-values-form 
 			:default-values (list "Something" "Something else" "A textarea! Yay!" "three" (list "two")))))
-
-(defvar *web-server* (start (make-instance 'acceptor :port 4141)))
