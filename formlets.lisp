@@ -101,7 +101,7 @@
 (defmacro define-show (field-type &body body)
   `(defmethod show ((field ,field-type) &optional value error)
      (html-to-str 
-       (:li :class (string-downcase (name-field))
+       (:li :class (string-downcase (name field))
 	    (:span :class "label" (str (string-capitalize (regex-replace-all "-" (name field) " "))))
 	    ,@body
 	    (when error (htm (:span :class "formlet-error"
