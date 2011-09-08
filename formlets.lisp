@@ -101,11 +101,12 @@
 (defmacro define-show (field-type &body body)
   `(defmethod show ((field ,field-type) &optional value error)
      (html-to-str 
-      (:li (:span :class "label" (str (string-capitalize (regex-replace-all "-" (name field) " "))))
-	   ,@body
-	   (when error (htm (:span :class "formlet-error"
-				   (dolist (s error) 
-				     (htm (:p (str s)))))))))))
+       (:li :class (string-downcase (name-field))
+	    (:span :class "label" (str (string-capitalize (regex-replace-all "-" (name field) " "))))
+	    ,@body
+	    (when error (htm (:span :class "formlet-error"
+				    (dolist (s error) 
+				      (htm (:p (str s)))))))))))
 
 (define-show formlet-field (:input :name (name field) :value value :class "text-box"))
 (define-show textarea (:textarea :name (name field) (str value)))
