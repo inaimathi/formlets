@@ -65,7 +65,7 @@
 
 (define-formlet (test-form-three)
     ((pull-down multi-select 
-		:value-set ("a" "b" "c" "d")
+		:value-set (list "a" "b" "c" "d")
 		:validation ((lambda (val) (= 2 (length val))) "Please pick exactly two options"))
      (radio-set radio-set :value-set (list "one" "two" "three" "four"))
      (single-check checkbox)
