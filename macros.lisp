@@ -6,7 +6,7 @@
 ;;       currently they use Hunchentoots' session (which is the main reason :formlets isn't portable)
 (defun define-field (field-name field-type &key size value-set default-value validation)
   "Takes a terse declaration and expands it into a make-instance for macro purposes"
-  (let ((final-value-set (when value-set `(:value-set (list ,@value-set))))
+  (let ((final-value-set (when value-set `(:value-set ,value-set)))
 	(final-size (when size `(:size ,size))))
     (multiple-value-bind (functions messages) (split-validation-list validation)
       `(make-instance ',field-type :name ,(format nil "~(~a~)" field-name) 

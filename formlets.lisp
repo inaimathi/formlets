@@ -23,7 +23,7 @@
 (defclass checkbox			(formlet-field) ())
 
 (defclass formlet-field-set		(formlet-field)
-  ((value-set :reader value-set :initarg :value-set :initform nil))
+  ((value-set :accessor value-set :initarg :value-set :initform nil))
   (:documentation "This class is for fields that show the user a list of options"))
 (defclass select			(formlet-field-set) ())
 (defclass radio-set			(formlet-field-set) ())
