@@ -28,14 +28,14 @@
   (declare (ignore v))
   (html-to-str 
     (:li :class (string-downcase (name field))
-	 (:span :class "label"
-		(when error 
-		  (htm (:span :class "formlet-error"
-			      (dolist (s error) 
-				(htm (:p (str s)))))))
-		(:script :type "text/javascript" :src (format nil "http://api.recaptcha.net/challenge?k=~a" *public-key*))
-		(:noscript (:iframe :src (format nil "http://api.recaptcha.net/noscript?k=~a" *public-key*)
-				    :height "300" :width "500" :frameborder "0")
-			   (:br)
-			   (:textarea :name "recaptcha_challenge_field" :rows "3" :cols "40")
-			   (:input :type "hidden" :name "recaptcha_response_field" :value "manual_challenge"))))))
+	 (:span :class "label")
+	 (when error 
+	   (htm (:span :class "formlet-error"
+		       (dolist (s error) 
+			 (htm (:p (str s)))))))
+	 (:script :type "text/javascript" :src (format nil "http://api.recaptcha.net/challenge?k=~a" *public-key*))
+	 (:noscript (:iframe :src (format nil "http://api.recaptcha.net/noscript?k=~a" *public-key*)
+			     :height "300" :width "500" :frameborder "0")
+		    (:br)
+		    (:textarea :name "recaptcha_challenge_field" :rows "3" :cols "40")
+		    (:input :type "hidden" :name "recaptcha_response_field" :value "manual_challenge")))))
