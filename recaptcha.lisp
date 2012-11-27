@@ -33,8 +33,8 @@
 	   (htm (:span :class "formlet-error"
 		       (dolist (s error) 
 			 (htm (:p (str s)))))))
-	 (:script :type "text/javascript" :src (format nil "http://api.recaptcha.net/challenge?k=~a" *public-key*))
-	 (:noscript (:iframe :src (format nil "http://api.recaptcha.net/noscript?k=~a" *public-key*)
+	 (:script :type "text/javascript" :src (format nil "https://www.google.com/recaptcha/api/challenge?k=~a" *public-key*))
+	 (:noscript (:iframe :src (format nil "https://www.google.com/recaptcha/api/noscript?k=~a" *public-key*)
 			     :height "300" :width "500" :frameborder "0")
 		    (:br)
 		    (:textarea :name "recaptcha_challenge_field" :rows "3" :cols "40")
