@@ -94,7 +94,7 @@ An instance of the `formlet` named `login` is created as part of the `define-for
 
 An example form using individual input validation:
 
-	(def-formlet (register :submit "Register")
+	(define-formlet (register :submit "Register")
 	     ((user-name text :validation ((not-blank?) "You can't leave this field blank"
                                            #`unique-username? "That name has already been taken"))
 	      (password password :validation (longer-than? 4) "Your password must be longer than 4 characters")
